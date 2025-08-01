@@ -17,7 +17,7 @@ tower-http = { version = "0.4.0", features = ["trace"] }
 tower = { version = "0.4", features = ["util"] }
 hyper = "0.14"
 regex = "1.5"
-jsonwebtoken = "8.3.0"
+jsonwebtoken = "9.3.0"
 bcrypt = "0.15.0"
 http = "0.2.9"
 

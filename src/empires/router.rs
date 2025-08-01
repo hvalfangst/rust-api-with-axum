@@ -11,7 +11,7 @@ pub mod router {
             model::UpsertEmpire
         },
         users::model::UserRole,
-        common::security::{enforce_role_policy, decode_claims}
+        common::security::authorize_with_role
     };
 
     // - - - - - - - - - - - [ROUTES] - - - - - - - - - - -
@@ -33,16 +33,8 @@ pub mod router {
         Json(upsert_empire): Json<UpsertEmpire>,
     ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
 
-        // Decode claims from bearer token header
-        let claims = match decode_claims(&headers) {
-            Ok(claims) => claims,
-            Err((status_code, json_value)) => return Err((status_code, json_value)),
-        };
-
-        // Ensure that the user derived from claims exists and has the role 'WRITER' or higher
-        let authorization = enforce_role_policy(&shared_state, &claims, UserRole::WRITER).await;
-
-        match authorization {
+        // Authorize user with WRITER role or higher
+        match authorize_with_role(&headers, &shared_state, UserRole::WRITER).await {
             Ok(_authorized_user) => {
                 let connection = shared_state.pool.get()
                     .expect("Failed to acquire connection from pool");
@@ -67,16 +59,8 @@ pub mod router {
     ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
         let (empire_id, ) = path.0;
 
-        // Decode claims from bearer token header
-        let claims = match decode_claims(&headers) {
-            Ok(claims) => claims,
-            Err((status_code, json_value)) => return Err((status_code, json_value)),
-        };
-
-        // Ensure that the user derived from claims exists and has the role 'READER' or higher
-        let authorization = enforce_role_policy(&shared_state, &claims, UserRole::READER).await;
-
-        match authorization {
+        // Authorize user with READER role or higher
+        match authorize_with_role(&headers, &shared_state, UserRole::READER).await {
             Ok(_authorized_user) => {
                 let connection = shared_state.pool.get()
                     .expect("Failed to acquire connection from pool");
@@ -107,16 +91,8 @@ pub mod router {
     ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
         let (empire_id, ) = path.0;
 
-        // Decode claims from bearer token header
-        let claims = match decode_claims(&headers) {
-            Ok(claims) => claims,
-            Err((status_code, json_value)) => return Err((status_code, json_value)),
-        };
-
-        // Ensure that the user derived from claims exists and has the role 'EDITOR' or higher
-        let authorization = enforce_role_policy(&shared_state, &claims, UserRole::EDITOR).await;
-
-        match authorization {
+        // Authorize user with EDITOR role or higher
+        match authorize_with_role(&headers, &shared_state, UserRole::EDITOR).await {
             Ok(_authorized_user) => {
                 let connection = shared_state.pool.get()
                     .expect("Failed to acquire connection from pool");
@@ -143,16 +119,8 @@ pub mod router {
     ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
         let (empire_id, ) = path.0;
 
-        // Decode claims from bearer token header
-        let claims = match decode_claims(&headers) {
-            Ok(claims) => claims,
-            Err((status_code, json_value)) => return Err((status_code, json_value)),
-        };
-
-        // Ensure that the user derived from claims exists and has the role 'ADMIN'
-        let authorization = enforce_role_policy(&shared_state, &claims, UserRole::ADMIN).await;
-
-        match authorization {
+        // Authorize user with ADMIN role
+        match authorize_with_role(&headers, &shared_state, UserRole::ADMIN).await {
             Ok(_authorized_user) => {
                 let connection = shared_state.pool.get()
                     .expect("Failed to acquire connection from pool");

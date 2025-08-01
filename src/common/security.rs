@@ -95,6 +95,21 @@ pub fn decode_claims(headers: &HeaderMap) -> Result<Option<TokenData<Claims>>, (
     }
 }
 
+pub async fn authorize_with_role(
+    headers: &HeaderMap,
+    shared_state: &ConnectionPool,
+    required_role: UserRole,
+) -> Result<Option<User>, (StatusCode, Json<Value>)> {
+    // Decode claims from bearer token header
+    let claims = match decode_claims(headers) {
+        Ok(claims) => claims,
+        Err((status_code, json_value)) => return Err((status_code, json_value)),
+    };
+
+    // Ensure that the user derived from claims exists and has the required role or higher
+    enforce_role_policy(shared_state, &claims, required_role).await
+}
+
 pub async fn enforce_role_policy(
     shared_state: &ConnectionPool,
     claims: &Option<TokenData<Claims>>,
