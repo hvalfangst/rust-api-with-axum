@@ -11,7 +11,7 @@ timestamp_ms() {
 start_time_db_reset=$(timestamp_ms)
 
 # Wipes our test database
-sh db/test/reset.sh
+sh backend/db/test/reset.sh
 
 end_time_db_reset=$(timestamp_ms)
 elapsed_time_db_reset=$((end_time_db_reset - start_time_db_reset))

@@ -23,6 +23,7 @@ pub mod router {
             .layer(middleware::from_fn_with_state(shared_connection_pool.clone(), require_writer));
         
         let read_routes = Router::new()
+            .route("/locations", axum::routing::get(get_all_locations_handler))
             .route("/locations/:location_id", axum::routing::get(read_location_handler))
             .layer(middleware::from_fn_with_state(shared_connection_pool.clone(), require_reader));
         
@@ -44,6 +45,21 @@ pub mod router {
     }
 
     // - - - - - - - - - - - [HANDLERS] - - - - - - - - - - -
+
+    pub async fn get_all_locations_handler(
+        State(shared_state): State<ConnectionPool>,
+    ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
+        let connection = shared_state.pool.get()
+            .expect("Failed to acquire connection from pool");
+
+        match locationsDB::new(connection).get_all() {
+            Ok(locations) => Ok((StatusCode::OK, Json(locations))),
+            Err(err) => {
+                eprintln!("Error fetching all locations: {:?}", err);
+                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "Failed to fetch locations"}))))
+            }
+        }
+    }
 
     pub async fn create_location_handler(
         State(shared_state): State<ConnectionPool>,

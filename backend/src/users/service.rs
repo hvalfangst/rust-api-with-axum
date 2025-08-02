@@ -61,6 +61,15 @@ pub mod service {
             Ok(user)
         }
 
+        pub fn list(&mut self) -> Result<Vec<User>, Error> {
+            use schema::users;
+
+            let all_users = users::table
+                .load::<User>(&mut self.connection)?;
+
+            Ok(all_users)
+        }
+
         pub fn update(&mut self, user_id: i32, update_user: UpsertUser) -> Result<User, Error> {
             use schema::users;
 
@@ -303,6 +312,43 @@ pub mod service {
             let result = user_db.delete(-666);  // Use a non-existent ID
 
             assert!(result.is_err());  // Expecting an error as the ID is not present
+        }
+
+        #[test]
+        fn list_returns_all_users() {
+            let database_url = load_environment_variable("TEST_DB");
+            let connection_pool = create_shared_connection_pool(database_url, 1);
+            let connection = connection_pool.pool.get().expect("Failed to get connection");
+            let mut user_db = UsersTable::new(connection);
+
+            // Create a few test users
+            let user1 = UpsertUser {
+                email: "user1@test.com".to_string(),
+                password: "password1".to_string(),
+                fullname: "User One".to_string(),
+                role: "READER".to_string()
+            };
+
+            let user2 = UpsertUser {
+                email: "user2@test.com".to_string(),
+                password: "password2".to_string(),
+                fullname: "User Two".to_string(),
+                role: "WRITER".to_string()
+            };
+
+            user_db.create(user1).expect("Create user1 failed");
+            user_db.create(user2).expect("Create user2 failed");
+
+            // List all users
+            let users = user_db.list().expect("List users failed");
+
+            // Assert that we have at least 2 users (could be more from other tests)
+            assert!(users.len() >= 2);
+
+            // Check that our test users are in the list
+            let emails: Vec<&String> = users.iter().map(|u| &u.email).collect();
+            assert!(emails.contains(&&"user1@test.com".to_string()));
+            assert!(emails.contains(&&"user2@test.com".to_string()));
         }
     }
 }

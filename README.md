@@ -1,46 +1,110 @@
-# REST API written in Rust with Axum
+# Full-Stack Application with Rust Backend and WebAssembly Frontend
 
-## Overview
+A complete web application written in Rust featuring an API built with Axum and frontend pages created with Leptos WASM. Endpoints are protected by
+JWT authentication, and the application supports role-based access control for managing users, star system locations, and empires in a fictional MMO universe inspired by EVE Online.
 
+## Architecture
 
+### Backend
+- **Framework**: Axum web framework with Hyper
+- **Database**: PostgreSQL with Diesel ORM
+- **Authentication**: JWT tokens with bcrypt password hashing
+- **Authorization**: Role-based access control (READER, WRITER, EDITOR, ADMIN)
+- **API**: RESTful endpoints with proper HTTP status codes
+
+### Frontend
+- **Framework**: Leptos (Rust → WebAssembly)
+- **Styling**: CSS with responsive design
+- **State Management**: Leptos signals and effects
+- **HTTP Client**: gloo-net for API communication
+- **Routing**: Client-side routing with leptos-router
 
 ## Requirements
 
-* x86-64
-* Linux/Unix
-* [Rust](https://www.rust-lang.org/tools/install)
-* [Docker](https://www.docker.com/products/docker-desktop/)
-
-## Startup
-
-The script "up" provisions resources and starts our application by executing the following:
-```
-1. docker-compose -f db/dev/docker-compose.yml up -d
-2. docker-compose -f db/test/docker-compose.yml up -d
-3. cargo install diesel_cli --no-default-features --features "postgres"
-4. diesel migration run --database-url="postgres://Tremakken:yeah???@localhost:3333/dev_db"
-5. diesel migration run --database-url="postgres://Glossy:yellau@localhost:4444/test_db"
-6. cargo build
-7. cargo test -- --test-threads=1
-8. cargo run
-```
+* x86-64 architecture
+* Linux/Unix environment
+* [Rust](https://www.rust-lang.org/tools/install) (latest stable)
+* [Docker](https://www.docker.com/products/docker-desktop/) and Docker Compose
+* [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/) for frontend builds
 
 
-## Shutdown
 
-The script "down" deletes our dev and test databases by executing the following:
-```
-1. docker-compose -f db/docker-compose.yml down
-2. docker-compose -f db/test/docker-compose.yml down
+## Development Setup
+
+### Backend Development
+
+Start the backend server with automatic database setup:
+
+```bash
+./serve_backend.sh
 ```
 
-## Test script
-The script "test" resets db and executes tests by executing the following:
-```
-1. sh db/test/reset.sh
-2. cargo test -- --test-threads=1
+This script will:
+- Launch PostgreSQL containers for development and testing
+- Install Diesel CLI for database migrations
+- Run database migrations automatically
+- Compile and start the Axum server on `http://localhost:3000`
+
+### Frontend Development
+
+In a separate terminal, start the frontend development server:
+
+```bash
+./serve_frontend.sh
 ```
 
-## Postman Collection
+This script will:
+- Build the WebAssembly package using wasm-pack
+- Start a Python HTTP server on `http://localhost:8000`
+- Serve the frontend with hot-reload capabilities
 
-The repository includes a Postman collection in the 'postman' directory.
+## API Reference
+
+The API domain is inspired by the MMO game 'EVE Online', providing [endpoints](backend/src/empires/router.rs) to manage users, star system locations, and empires within the game's universe.
+
+### Authentication Endpoints
+
+| Method | Endpoint         | Description          | Auth Required |
+|--------|------------------|----------------------|---------------|
+| POST   | `/users/login`   | User authentication  | No            |
+| POST   | `/users`         | User registration    | No            |
+
+### CRUD Endpoints
+
+| Resource   | Method | Endpoint              | Description         | Required Role |
+|------------|--------|-----------------------|---------------------|---------------|
+| Users      | GET    | `/users`             | List all users      | READER        |
+| Users      | GET    | `/users/:id`         | Get user by ID      | READER        |
+| Users      | PUT    | `/users/:id`         | Update user         | EDITOR        |
+| Users      | DELETE | `/users/:id`         | Delete user         | ADMIN         |
+| Locations  | GET    | `/locations`         | List all locations  | READER        |
+| Locations  | POST   | `/locations`         | Create location     | WRITER        |
+| Locations  | GET    | `/locations/:id`     | Get location by ID  | READER        |
+| Locations  | PUT    | `/locations/:id`     | Update location     | EDITOR        |
+| Locations  | DELETE | `/locations/:id`     | Delete location     | ADMIN         |
+| Empires    | GET    | `/empires`           | List all empires    | READER        |
+| Empires    | POST   | `/empires`           | Create empire       | WRITER        |
+| Empires    | GET    | `/empires/:id`       | Get empire by ID    | READER        |
+| Empires    | PUT    | `/empires/:id`       | Update empire       | EDITOR        |
+| Empires    | DELETE | `/empires/:id`       | Delete empire       | ADMIN         |
+
+## User Roles
+
+The system implements a hierarchical role-based access control:
+
+- **READER**: Can view resources (locations, empires, users)
+- **WRITER**: READER permissions + can create new resources
+- **EDITOR**: WRITER permissions + can modify existing resources
+- **ADMIN**: EDITOR permissions + can delete resources and manage users
+
+Higher roles inherit all permissions from lower roles.
+
+## Database Schema
+
+The application uses PostgreSQL with the following main entities:
+
+- **users**: User accounts with authentication and role information
+- **locations**: Star system and area data
+- **empires**: Empire information with location associations
+
+Database [migrations](backend/migrations) are managed through Diesel and executed automatically during development setup.

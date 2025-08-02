@@ -34,6 +34,15 @@ pub mod service {
             Ok(new_location)
         }
 
+        pub fn get_all(&mut self) -> Result<Vec<Location>, diesel::result::Error> {
+            use schema::locations;
+
+            let all_locations = locations::table
+                .load::<Location>(&mut self.connection)?;
+
+            Ok(all_locations)
+        }
+
         pub fn get(&mut self, location_id: i32) -> Result<Option<Location>, diesel::result::Error> {
             use schema::locations;
 

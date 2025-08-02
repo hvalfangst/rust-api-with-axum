@@ -36,6 +36,15 @@ pub mod service {
             Ok(new_empire)
         }
 
+        pub fn get_all(&mut self) -> Result<Vec<Empire>, diesel::result::Error> {
+            use schema::empires;
+
+            let all_empires = empires::table
+                .load::<Empire>(&mut self.connection)?;
+
+            Ok(all_empires)
+        }
+
         pub fn get(&mut self, empire_id: i32) -> Result<Option<Empire>, diesel::result::Error> {
             use schema::empires;
 

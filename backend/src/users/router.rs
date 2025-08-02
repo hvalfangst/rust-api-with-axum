@@ -1,11 +1,13 @@
 pub mod router {
     use serde_json::{json, Value};
     use bcrypt::verify;
-    use axum::{extract, extract::State, http::StatusCode, Json, response::IntoResponse, Router};
+    use axum::{extract, extract::State, http::StatusCode, Json, response::IntoResponse, Router, middleware};
     use crate::{
         common::{
             db::ConnectionPool,
-            security::{hash_password, generate_token}},
+            security::{hash_password, generate_token},
+            middleware::{require_reader, require_editor, require_admin}
+        },
         users::{
             service::service::UsersTable,
             model::{
@@ -18,17 +20,53 @@ pub mod router {
     // - - - - - - - - - - - [ROUTES] - - - - - - - - - - -
 
     pub fn users_route(shared_connection_pool: ConnectionPool) -> Router {
-        Router::new()
-            .route("/users", axum::routing::post(create_user_handler))
+        // Public routes (no authentication required)
+        let public_routes = Router::new()
+            .route("/users", axum::routing::post(create_user_handler))  // Registration
+            .route("/users/login", axum::routing::post(login_user_handler));  // Login
+        
+        // Protected routes requiring authentication
+        let read_routes = Router::new()
+            .route("/users", axum::routing::get(list_users_handler))
             .route("/users/:user_id", axum::routing::get(get_user_handler))
+            .layer(middleware::from_fn_with_state(shared_connection_pool.clone(), require_reader));
+        
+        let update_routes = Router::new()
             .route("/users/:user_id", axum::routing::put(update_user_handler))
+            .layer(middleware::from_fn_with_state(shared_connection_pool.clone(), require_editor));
+        
+        let delete_routes = Router::new()
             .route("/users/:user_id", axum::routing::delete(delete_user_handler))
-            .route("/users/login", axum::routing::post(login_user_handler))
+            .layer(middleware::from_fn_with_state(shared_connection_pool.clone(), require_admin));
+
+        // Merge all route groups
+        Router::new()
+            .merge(public_routes)
+            .merge(read_routes)
+            .merge(update_routes)
+            .merge(delete_routes)
             .with_state(shared_connection_pool)
     }
 
 
     // - - - - - - - - - - - [HANDLERS] - - - - - - - - - - -
+
+    pub async fn list_users_handler(
+        State(shared_state): State<ConnectionPool>,
+    ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
+        let connection = shared_state.pool.get()
+            .expect("Failed to acquire connection from pool");
+
+        let mut users = UsersTable::new(connection);
+
+        match users.list() {
+            Ok(users_list) => Ok((StatusCode::OK, Json(users_list))),
+            Err(err) => {
+                eprintln!("Error listing users: {:?}", err);
+                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "Failed to list users"}))))
+            }
+        }
+    }
 
     pub async fn create_user_handler(
         State(shared_state): State<ConnectionPool>,
@@ -412,6 +450,36 @@ pub mod router {
 
             // Assert that the deleted user is None (i.e., it doesn't exist)
             assert!(deleted_user.is_none());
+        }
+
+        #[tokio::test]
+        async fn get_users_returns_200_with_users_list() {
+            let database_url = load_environment_variable("TEST_DB");
+            let connection_pool = create_shared_connection_pool(database_url, 2);
+            let service = users_route(connection_pool);
+
+            // Create a request to list all users
+            let request = Request::builder()
+                .uri("/users")
+                .method("GET")
+                .body(Body::empty())
+                .unwrap();
+
+            // Send the request through the service
+            let response = service
+                .oneshot(request)
+                .await
+                .unwrap();
+
+            // Assert that the response status is 200
+            assert_eq!(response.status(), StatusCode::OK);
+
+            // Extract body from response
+            let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+            let response_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+            // Assert that the response is an array
+            assert!(response_json.is_array());
         }
     }
 }
